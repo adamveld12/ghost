@@ -33,7 +33,6 @@ cmd_log() {
   done
 
   local git_log_args=("--format=%H")
-  [[ -n "$max_count" ]] && git_log_args+=("--max-count=$max_count")
 
   while IFS= read -r hash; do
     local body
@@ -52,6 +51,9 @@ cmd_log() {
     model="$(echo "$body" | grep "^${GHOST_MODEL_KEY}:" | sed "s/^${GHOST_MODEL_KEY}: //" || true)"
     session="$(echo "$body" | grep "^${GHOST_SESSION_KEY}:" | sed "s/^${GHOST_SESSION_KEY}: //" || true)"
     files="$(echo "$body" | grep "^${GHOST_FILES_KEY}:" | sed "s/^${GHOST_FILES_KEY}: //" || true)"
+
+    # Honour -n limit (counts ghost commits, not total commits scanned)
+    [[ -n "$max_count" ]] && [[ "$count" -ge "$max_count" ]] && break
 
     [ "$count" -gt 0 ] && printf "\n"
 

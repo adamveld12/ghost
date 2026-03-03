@@ -103,8 +103,9 @@ cmd_commit() {
   printf "\n"
 
   # Snapshot before
-  local snapshot_before
+  local snapshot_before head_before
   snapshot_before="$(_snapshot)"
+  head_before="$(git rev-parse HEAD 2>/dev/null || true)"
 
   local session_id
   session_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
@@ -125,15 +126,73 @@ cmd_commit() {
   ghost_spinner_start "detecting changes…"
 
   # Snapshot after
-  local snapshot_after
+  local snapshot_after head_after
   snapshot_after="$(_snapshot)"
+  head_after="$(git rev-parse HEAD 2>/dev/null || true)"
 
-  # Find changed files
+  # Find changed files (working-tree changes the agent left unstaged/uncommitted)
   local changed_files
   changed_files="$(_changed_files "$snapshot_before" "$snapshot_after")"
 
   ghost_spinner_stop
 
+  # ── Handle agent self-commits ─────────────────────────────────────────────
+  # If the agent ran git commit itself, HEAD will have moved. We inject
+  # ghost-meta into the most recent commit via --amend so it appears in
+  # ghost log. Any remaining working-tree changes are staged and committed
+  # separately below.
+  if [ -n "$head_before" ] && [ "$head_after" != "$head_before" ]; then
+    local agent_commit_body agent_commit_msg files_in_agent_commit files_csv
+    agent_commit_body="$(git log -1 --format=%B)"
+
+    # Only amend if ghost-meta not already present
+    if ! echo "$agent_commit_body" | grep -q "^${GHOST_META_MARKER}$"; then
+      files_in_agent_commit="$(git diff-tree --no-commit-id -r --name-only HEAD | tr '\n' ',' | sed 's/,$//')"
+      agent_commit_msg="${agent_commit_body}
+${GHOST_META_MARKER}
+${GHOST_PROMPT_KEY}: ${prompt}
+${GHOST_AGENT_KEY}: ${agent}
+${GHOST_MODEL_KEY}: ${model}
+${GHOST_SESSION_KEY}: ${session_id}
+${GHOST_FILES_KEY}: ${files_in_agent_commit}"
+      GHOST_ENRICHING=1 git commit --amend -m "$agent_commit_msg"
+      printf "\n"
+      gh_success "  ✓ ghost: tagged agent commit with ghost-meta '${prompt}'"
+    fi
+
+    # Stage and commit any remaining working-tree changes
+    if [ -n "$changed_files" ]; then
+      if [ "$dry_run" = "1" ]; then
+        printf "\n%bremaining changes:%b\n" "${GH_PURPLE}" "${GH_RESET}"
+        while IFS= read -r f; do
+          printf "  %b+%b %s\n" "${GH_CYAN}" "${GH_RESET}" "$f"
+        done <<< "$changed_files"
+        printf "\n"
+        gh_label "  ghost: dry-run complete. No commit made."
+        exit 0
+      fi
+      while IFS= read -r f; do
+        [ -n "$f" ] && git add -- "$f"
+      done <<< "$changed_files"
+      files_csv="$(echo "$changed_files" | tr '\n' ',' | sed 's/,$//')"
+      local followup_msg
+      followup_msg="${prompt} (follow-up)
+
+${GHOST_META_MARKER}
+${GHOST_PROMPT_KEY}: ${prompt}
+${GHOST_AGENT_KEY}: ${agent}
+${GHOST_MODEL_KEY}: ${model}
+${GHOST_SESSION_KEY}: ${session_id}
+${GHOST_FILES_KEY}: ${files_csv}"
+      GHOST_ENRICHING=1 git commit -m "$followup_msg"
+      printf "\n"
+      gh_success "  ✓ ghost: committed follow-up changes '${prompt}'"
+    fi
+    printf "\n"
+    return 0
+  fi
+
+  # ── Normal flow: agent left changes in the working tree ───────────────────
   if [ -z "$changed_files" ]; then
     printf "\n"
     gh_label "  ghost: no file changes detected. Nothing to commit."
