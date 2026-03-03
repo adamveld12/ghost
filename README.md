@@ -69,6 +69,7 @@ ghost commit -m "create a REST API endpoint for user registration"
 | `ghost commit --agent gemini -m "prompt"` | Use a specific agent (claude, gemini, codex, opencode) |
 | `ghost commit --dry-run -m "prompt"` | Generate code, show what changed, don't commit |
 | `ghost log` | Pretty-print ghost commit history (prompt, agent, model, session, files) |
+| `ghost rebase --agent AGENT <base>` | Replay ghost commit prompts through a different agent |
 | `GHOST_SKIP=1 ghost commit -m "..."` | Pass-through to plain `git commit` |
 
 ### Examples
@@ -98,6 +99,62 @@ GHOST_AGENT=gemini ghost commit -m "scaffold a new service"
 # Manual commit (bypass ghost entirely)
 GHOST_SKIP=1 ghost commit -m "bump version to 1.2.0"
 ```
+
+## Rebase-Regen
+
+`ghost rebase` is the killer feature: take any range of ghost commits, swap out the AI, and rebuild your codebase from scratch using the same prompts.
+
+```
+ghost rebase [--agent AGENT] [--model MODEL] <base>
+```
+
+It works like `git rebase -i` conceptually, but instead of squashing or reordering commits it *replays every prompt* through a different agent:
+
+```
+before:
+  HEAD    [claude] make the output red with ANSI codes
+  HEAD~1  [claude] create hello.sh that prints Hello World
+  HEAD~2  (base)
+
+after: ghost rebase --agent gemini HEAD~2
+  HEAD    [gemini] make the output red with ANSI codes
+  HEAD~1  [gemini] create hello.sh that prints Hello World
+  HEAD~2  (base, unchanged)
+```
+
+### Rebase Examples
+
+```bash
+# Re-run the last 3 ghost commits with Gemini
+ghost rebase --agent gemini HEAD~3
+
+# Re-run with a specific model
+ghost rebase --agent gemini --model gemini-2.5-pro HEAD~5
+
+# Re-run from a named commit
+ghost rebase --agent codex abc1234
+
+# Preview what would be replayed (no changes made)
+ghost rebase --dry-run HEAD~3
+
+# Re-run all ghost commits since branching from main
+ghost rebase --agent claude --model claude-opus-4-6 main
+```
+
+### How Rebase-Regen Works
+
+```
+1. Scan <base>..HEAD for ghost commits → extract prompts in order
+2. Check working tree is clean
+3. git reset --hard <base>
+4. For each prompt (oldest → newest):
+     ghost commit --agent AGENT --model MODEL -m "<original prompt>"
+5. New commits are created with updated ghost-agent / ghost-model metadata
+```
+
+Plain git commits in the range (those without `ghost-meta`) are silently skipped — only ghost commits are replayed.
+
+> **Warning**: This rewrites history. Coordinate with your team before rebasing commits that have been pushed to a shared remote.
 
 ## Commit Message Format
 
