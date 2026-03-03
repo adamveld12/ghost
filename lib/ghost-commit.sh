@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# ghost-commit.sh — run claude, detect changes, stage, commit
+# ghost-commit.sh — run agent, detect changes, stage, commit
 
 set -euo pipefail
 
 # shellcheck source=lib/ghost-common.sh
 source "${GHOST_ROOT}/lib/ghost-common.sh"
+# shellcheck source=lib/ghost-agents.sh
+source "${GHOST_ROOT}/lib/ghost-agents.sh"
 
 _snapshot() {
   git status --porcelain=v2 2>/dev/null || true
@@ -42,7 +44,8 @@ cmd_commit() {
   ghost_ensure_repo
 
   local prompt=""
-  local model="${GHOST_DEFAULT_MODEL}"
+  local agent="${GHOST_DEFAULT_AGENT}"
+  local model=""
   local dry_run=0
 
   while [[ $# -gt 0 ]]; do
@@ -50,6 +53,11 @@ cmd_commit() {
       -m|--message)
         shift
         prompt="$1"
+        shift
+        ;;
+      --agent)
+        shift
+        agent="$1"
         shift
         ;;
       --model)
@@ -63,7 +71,7 @@ cmd_commit() {
         ;;
       *)
         echo "error: unknown option: $1" >&2
-        echo "usage: ghost commit -m \"prompt\" [--model MODEL] [--dry-run]" >&2
+        echo "usage: ghost commit -m \"prompt\" [--agent AGENT] [--model MODEL] [--dry-run]" >&2
         exit 1
         ;;
     esac
@@ -74,9 +82,20 @@ cmd_commit() {
     exit 1
   fi
 
-  echo "Ghost: running claude..."
+  if ! ghost_validate_agent "$agent"; then
+    echo "error: unsupported agent: ${agent}" >&2
+    echo "  supported: ${GHOST_SUPPORTED_AGENTS[*]}" >&2
+    exit 1
+  fi
+
+  # Resolve model: flag > env > agent default
+  if [ -z "$model" ]; then
+    model="$(ghost_default_model "$agent")"
+  fi
+
+  echo "Ghost: running ${agent}..."
   echo "  prompt: ${prompt}"
-  echo "  model:  ${model}"
+  [ -n "$model" ] && echo "  model:  ${model}"
   [ "$dry_run" = "1" ] && echo "  mode:   dry-run"
   echo ""
 
@@ -84,21 +103,16 @@ cmd_commit() {
   local snapshot_before
   snapshot_before="$(_snapshot)"
 
-  # Run claude
   local session_id
   session_id="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 
-  local claude_exit=0
-  env -u CLAUDECODE claude \
-    --model "$model" \
-    -p "$prompt" \
-    --dangerously-skip-permissions \
-    || claude_exit=$?
+  local agent_exit=0
+  ghost_run_agent "$agent" "$model" "$prompt" || agent_exit=$?
 
-  if [ "$claude_exit" -ne 0 ]; then
+  if [ "$agent_exit" -ne 0 ]; then
     echo "" >&2
-    echo "error: claude exited with code ${claude_exit}" >&2
-    exit "$claude_exit"
+    echo "error: ${agent} exited with code ${agent_exit}" >&2
+    exit "$agent_exit"
   fi
 
   # Snapshot after
@@ -140,6 +154,7 @@ cmd_commit() {
 
 ${GHOST_META_MARKER}
 ${GHOST_PROMPT_KEY}: ${prompt}
+${GHOST_AGENT_KEY}: ${agent}
 ${GHOST_MODEL_KEY}: ${model}
 ${GHOST_SESSION_KEY}: ${session_id}
 ${GHOST_FILES_KEY}: ${files_csv}"

@@ -19,12 +19,15 @@ Usage:
   ghost log                         pretty-print ghost commit history
 
 Options:
-  --model MODEL    claude model to use (default: claude-sonnet-4-6)
+  --agent AGENT    coding agent to use (default: claude)
+                   supported: claude, gemini, codex, opencode
+  --model MODEL    model override for the agent
   --dry-run        generate code but do not commit
-  -m, --message    the intent/prompt to pass to claude
+  -m, --message    the intent/prompt to pass to the agent
 
 Environment:
   GHOST_SKIP=1     pass-through to plain git commit
+  GHOST_AGENT      default agent override (claude|gemini|codex|opencode)
   GHOST_MODEL      default model override
 
 EOF

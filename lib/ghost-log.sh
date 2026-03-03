@@ -27,11 +27,12 @@ cmd_log() {
     echo "$body" | grep -q "^${GHOST_META_MARKER}$" || continue
 
     local short_hash="${hash:0:7}"
-    local date author prompt model session files
+    local date author prompt agent model session files
 
     date="$(git log -1 --format='%ad' --date=short "$hash")"
     author="$(git log -1 --format='%an' "$hash")"
     prompt="$(echo "$body" | grep "^${GHOST_PROMPT_KEY}:" | sed "s/^${GHOST_PROMPT_KEY}: //")"
+    agent="$(echo "$body" | grep "^${GHOST_AGENT_KEY}:" | sed "s/^${GHOST_AGENT_KEY}: //")"
     model="$(echo "$body" | grep "^${GHOST_MODEL_KEY}:" | sed "s/^${GHOST_MODEL_KEY}: //")"
     session="$(echo "$body" | grep "^${GHOST_SESSION_KEY}:" | sed "s/^${GHOST_SESSION_KEY}: //")"
     files="$(echo "$body" | grep "^${GHOST_FILES_KEY}:" | sed "s/^${GHOST_FILES_KEY}: //")"
@@ -41,6 +42,7 @@ cmd_log() {
     printf "${_BOLD}${_YELLOW}%s${_RESET} ${_DIM}%s (%s)${_RESET}\n" \
       "$short_hash" "$date" "$author"
     printf "  ${_CYAN}intent:${_RESET}  %s\n" "$prompt"
+    printf "  ${_DIM}agent:   %s${_RESET}\n" "${agent:-claude}"
     printf "  ${_DIM}model:   %s${_RESET}\n" "${model:-unknown}"
     printf "  ${_DIM}session: %s${_RESET}\n" "${session:-unknown}"
     if [ -n "$files" ]; then

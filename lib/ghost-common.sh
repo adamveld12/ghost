@@ -3,10 +3,12 @@
 
 GHOST_META_MARKER="ghost-meta"
 GHOST_PROMPT_KEY="ghost-prompt"
+GHOST_AGENT_KEY="ghost-agent"
 GHOST_MODEL_KEY="ghost-model"
 GHOST_SESSION_KEY="ghost-session"
 GHOST_FILES_KEY="ghost-files"
 
+GHOST_DEFAULT_AGENT="${GHOST_AGENT:-claude}"
 GHOST_DEFAULT_MODEL="${GHOST_MODEL:-claude-sonnet-4-6}"
 
 ghost_repo_root() {
