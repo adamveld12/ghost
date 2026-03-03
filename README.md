@@ -25,6 +25,18 @@ a3f2c1b  add JWT authentication middleware
 
 Each of those is a ghost commit. Behind each message is an AI that turned words into working code, and a session ID that ties the output back to the generation.
 
+## Why Intent-Based Commits?
+
+**Code is the artifact, intent is the source of truth.**
+
+When you read a traditional git log, you see *what* changed. With ghost, you see *prompts* — the human decision that triggered the change. A year from now when LLMs are more amazing you can replay the git log and generate a better version.
+
+**Every commit is reproducible.** The prompt is preserved with some extra attributes about which model and agent was used. You can re-run any commit against a fresh checkout to see what Claude generates from the same instruction.
+
+**The log becomes a design document.** Read `ghost log` top-to-bottom and you'll see the intent behind every architectural decision, not just the code that resulted from it.
+
+**Diffs show what the AI decided; messages show what you asked for.** The two together give you full context: the goal and the implementation, inseparably linked.
+
 ## How It Works
 
 ```
@@ -32,12 +44,10 @@ you: ghost commit -m "add user auth with JWT"
      ↓
 agent generates code → files written to working tree
      ↓
-ghost detects changes → stages only new/modified files
+ghost detects changes → stages new/modified files
      ↓
 git commit with enriched message (prompt + agent + model + session + file list)
 ```
-
-Ghost snapshots the working tree before and after the agent runs, diffs the two, and stages only what changed. Unrelated files are never touched.
 
 ## Quick Start
 
@@ -138,17 +148,6 @@ ghost-files: src/pages/login.tsx,src/hooks/useAuth.ts,src/api/auth.ts
   - **codex**: [`codex`](https://github.com/openai/codex) CLI
   - **opencode**: [`opencode`](https://opencode.ai) CLI
 
-## Why Intent-Based Commits?
-
-**Code is the artifact, intent is the source of truth.**
-
-When you read a traditional git log, you see *what* changed. With ghost, you see *why* — the actual human decision that triggered the change. A year from now, "refactor auth middleware to use dependency injection" tells you more than a diff ever will.
-
-**Every commit is reproducible.** The prompt is preserved exactly. You can re-run any commit against a fresh checkout to see what Claude generates from the same instruction.
-
-**The log becomes a design document.** Read `ghost log` top-to-bottom and you'll see the intent behind every architectural decision, not just the code that resulted from it.
-
-**Diffs show what the AI decided; messages show what you asked for.** The two together give you full context: the goal and the implementation, inseparably linked.
 
 ## Running Tests
 
