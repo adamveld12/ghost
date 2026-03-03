@@ -6,6 +6,9 @@ Ghost is a CLI that flips the git workflow: instead of committing code, you comm
 
 Supports **claude**, **gemini**, **codex**, and **opencode** — swap agents per-commit or set a default.
 
+<img width="935" height="657" alt="image" src="https://github.com/user-attachments/assets/cc33324e-7a33-4572-b9ab-be1b3d773c0e" />
+
+
 ## The Idea
 
 Code is ephemeral. Intent is permanent.
